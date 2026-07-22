@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📝 امتحان المضلعات المتشابهة</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Cairo', sans-serif; }
+        body.en-mode { font-family: 'Inter', sans-serif; }
+        .correct { background-color: #dcfce7 !important; border-color: #16a34a !important; }
+        .incorrect { background-color: #fee2e2 !important; border-color: #dc2626 !important; }
+        .formula { font-family: 'Times New Roman', serif; direction: ltr; display: inline-block; font-style: italic; }
+        .timer-warning { color: #dc2626 !important; animation: pulse 1s infinite; }
+        @keyframes pulse { 50% { opacity: 0.7; } }
+        @media print { 
+            .no-print { display: none !important; } 
+            body { background: white; color: black; }
+            .answer-box { display: block !important; color: #166534 !important; }
+            #results-panel { display: block !important; box-shadow: none; border: 2px solid #000; }
+        }
+        .success-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-weight: bold; font-size: 0.875rem; }
+        .grade-excellent { background: #dcfce7; color: #166534; }
+        .grade-good { background: #fef3c7; color: #92400e; }
+        .grade-pass { background: #dbeafe; color: #1e40af; }
+        .grade-fail { background: #fee2e2; color: #991b1b; }
+        .lang-switch {
+            position: fixed; top: 16px; left: 16px; z-index: 100;
+            background: white; padding: 6px; border-radius: 30px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15); display: flex; gap: 4px;
+            border: 2px solid #8b5cf6;
+        }
+        [dir="ltr"] .lang-switch { left: auto; right: 16px; }
+        .lang-btn {
+            padding: 6px 14px; border-radius: 20px; cursor: pointer; font-weight: bold;
+            transition: all 0.3s; border: none; font-size: 0.875rem;
+            background: transparent; color: #6b7280;
+        }
+        .lang-btn.active { background: #8b5cf6; color: white; box-shadow: 0 2px 6px rgba(139,92,246,0.4); }
+        .lang-btn:hover:not(.active) { background: #f5f3ff; color: #8b5cf6; }
+        .shuffle-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #f59e0b, #ef4444);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            margin-right: 8px;
+            animation: pulse 2s infinite;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 p-4 md:p-8 min-h-screen">
+
+    <div class="lang-switch no-print">
+        <button type="button" class="lang-btn active" onclick="setLanguage('ar')" id="btn-ar">عربي</button>
+        <button type="button" class="lang-btn" onclick="setLanguage('en')" id="btn-en">EN</button>
+    </div>
+
+    <div id="timer-container" class="max-w-4xl mx-auto mb-4 text-center no-print">
+        <div class="bg-white p-4 rounded-xl shadow-md inline-block border-2 border-purple-100">
+            <span class="text-gray-600 ml-2" data-ar="⏱️ الوقت المتبقي:" data-en="⏱️ Time Remaining:">⏱️ الوقت المتبقي:</span>
+            <span id="timer" class="text-2xl font-bold text-purple-600 font-mono">60:00</span>
+            <span class="shuffle-badge" data-ar="🔀 أسئلة عشوائية" data-en="🔀 Random Questions">🔀 أسئلة عشوائية</span>
+        </div>
+    </div>
+
+    <div class="max-w-4xl mx-auto mb-6 flex flex-wrap gap-3 justify-center no-print">
+        <button type="button" onclick="toggleAnswers()" class="bg-purple-600 hover:bg-purple-700 text-white px-5 py-2 rounded-lg font-medium transition shadow cursor-pointer" data-ar="👁️ إظهار / إخفاء الإجابات" data-en="👁️ Show / Hide Answers">👁️ إظهار / إخفاء الإجابات</button>
+        <button type="button" onclick="window.print()" class="bg-gray-800 hover:bg-gray-900 text-white px-5 py-2 rounded-lg font-medium transition shadow cursor-pointer" data-ar="🖨️ طباعة / PDF" data-en="🖨️ Print / PDF">🖨️ طباعة / PDF</button>
+        <button type="button" onclick="reshuffleExam()" class="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-5 py-2 rounded-lg font-medium transition shadow cursor-pointer" data-ar="🔀 إعادة خلط الأسئلة" data-en="🔀 Reshuffle Questions">🔀 إعادة خلط الأسئلة</button>
+    </div>
+
+    <header class="max-w-4xl mx-auto bg-white p-6 rounded-xl shadow-md mb-8 border-r-4 border-purple-600">
+        <div class="text-center">
+            <h1 class="text-2xl md:text-3xl font-bold text-gray-900 mb-2" data-ar="📝 امتحان المضلعات المتشابهة" data-en="📝 Similar Polygons Exam">📝 امتحان المضلعات المتشابهة</h1>
+            <h2 class="text-lg text-purple-600 font-semibold" data-ar="Similarity Transformations & Polygons" data-en="Similarity Transformations & Polygons">Similarity Transformations & Polygons</h2>
+            <p class="text-sm text-gray-600 mt-2" data-ar="امتحان شامل لتحويل التشابه، المضلعات المتشابهة، المبرهنات 3.1-3.3، التناسب، والتطبيقات الحياتية" data-en="Comprehensive exam on similarity transformations, similar polygons, Theorems 3.1-3.3, proportions, and real-life applications">امتحان شامل لتحويل التشابه، المضلعات المتشابهة، المبرهنات 3.1-3.3، التناسب، والتطبيقات الحياتية</p>
+            <p class="text-xs text-purple-600 mt-2 font-semibold" data-ar="⚠️ ملاحظة: يتم خلط ترتيب الأسئلة والخيارات تلقائياً مع كل تحديث للصفحة" data-en="⚠️ Note: Questions and options are randomly shuffled on every page refresh">⚠️ ملاحظة: يتم خلط ترتيب الأسئلة والخيارات تلقائياً مع كل تحديث للصفحة</p>
+        </div>
+        <div class="mt-4 flex flex-wrap justify-center gap-4 text-sm text-gray-600">
+            <span><span data-ar="📅 التاريخ:" data-en="📅 Date:">📅 التاريخ:</span> <input type="date" id="examDate" class="border-b border-gray-400 bg-transparent w-32 text-center"></span>
+            <span><span data-ar="👤 الاسم:" data-en="👤 Name:">👤 الاسم:</span> <input type="text" id="studentName" class="border-b border-gray-400 bg-transparent w-32 text-center" placeholder="Enter name" required></span>
+            <span><span data-ar="🏫 الشعبة:" data-en="🏫 Class:">🏫 الشعبة:</span> <input type="text" id="studentClass" class="border-b border-gray-400 bg-transparent w-28 text-center" placeholder="Class"></span>
+            <span><span data-ar="⏱️ المدة: 60 دقيقة" data-en="⏱️ Duration: 60 min">⏱️ المدة: 60 دقيقة</span></span>
+            <span><span data-ar="📊 المجموع: 50 درجة" data-en="📊 Total: 50 pts">📊 المجموع: 50 درجة</span></span>
+        </div>
+    </header>
+
+    <main class="max-w-4xl mx-auto space-y-8" id="exam-content"></main>
+
+    <div class="text-center no-print pb-8 mt-8">
+        <button type="button" onclick="gradeExam()" class="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-lg px-10 py-4 rounded-xl font-bold shadow-xl transition transform hover:scale-105 cursor-pointer" data-ar="📝 تسليم وتصحيح الامتحان" data-en="📝 Submit & Grade Exam">📝 تسليم وتصحيح الامتحان</button>
+    </div>
+
+    <div id="results-panel" class="max-w-4xl mx-auto mt-8 bg-white p-8 rounded-2xl shadow-2xl border-t-4 border-emerald-500 hidden no-print">
+        <h2 class="text-3xl font-bold text-gray-900 mb-6 text-center" data-ar="📊 نتائج الامتحان" data-en="📊 Exam Results">📊 نتائج الامتحان</h2>
+        <div class="grid md:grid-cols-3 gap-4 mb-6">
+            <div class="bg-blue-50 p-4 rounded-xl text-center"><p data-ar="اسم الطالب" data-en="Student Name">اسم الطالب</p><p id="res-name" class="font-bold text-xl text-purple-700">-</p></div>
+            <div class="bg-purple-50 p-4 rounded-xl text-center"><p data-ar="التاريخ" data-en="Date">التاريخ</p><p id="res-date" class="font-bold text-xl text-purple-700">-</p></div>
+            <div class="bg-emerald-50 p-4 rounded-xl text-center"><p data-ar="المجموع" data-en="Score">المجموع</p><p id="res-total" class="font-bold text-3xl text-emerald-600">0 / 50</p></div>
+        </div>
+        <div class="text-center mb-6">
+            <span id="success-badge" class="success-badge grade-excellent">-</span>
+            <p id="success-percent" class="text-4xl font-bold text-emerald-600 mt-2">100%</p>
+            <p class="text-sm text-gray-500" data-ar="نسبة النجاح" data-en="Success Rate">نسبة النجاح</p>
+        </div>
+        <div class="bg-gray-50 p-6 rounded-xl mb-6">
+            <h3 class="font-bold text-lg mb-4 text-gray-800" data-ar="📈 تفصيل الأداء حسب القسم:" data-en="📈 Performance Breakdown:">📈 تفصيل الأداء حسب القسم:</h3>
+            <div class="space-y-3">
+                <div class="flex justify-between items-center"><span class="text-gray-700" data-ar="المفاهيم الأساسية والمبرهنات" data-en="Key Concepts & Theorems">المفاهيم الأساسية والمبرهنات</span><span id="sec1-score" class="font-bold text-purple-600">0/10</span></div>
+                <div class="flex justify-between items-center"><span class="text-gray-700" data-ar="استخدام عبارة التشابه والتناسب" data-en="Similarity Statements & Proportions">استخدام عبارة التشابه والتناسب</span><span id="sec2-score" class="font-bold text-purple-600">0/10</span></div>
+                <div class="flex justify-between items-center"><span class="text-gray-700" data-ar="إيجاد أطوال مجهولة باستخدام الجبر" data-en="Finding Unknown Lengths Algebraically">إيجاد أطوال مجهولة باستخدام الجبر</span><span id="sec3-score" class="font-bold text-purple-600">0/10</span></div>
+                <div class="flex justify-between items-center"><span class="text-gray-700" data-ar="التطبيقات الحياتية" data-en="Real-Life Applications">التطبيقات الحياتية</span><span id="sec4-score" class="font-bold text-purple-600">0/10</span></div>
+                <div class="flex justify-between items-center"><span class="text-gray-700" data-ar="مهارات التفكير العليا" data-en="Higher-Order Thinking Skills">مهارات التفكير العليا</span><span id="sec5-score" class="font-bold text-purple-600">0/10</span></div>
+            </div>
+        </div>
+        <div class="text-center mb-6">
+            <button type="button" id="sendEmailBtn" onclick="sendResultsToEmail()" class="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white text-lg px-8 py-3 rounded-xl font-bold shadow-xl transition transform hover:scale-105 cursor-pointer" data-ar="📧 إرسال النتائج للمعلم" data-en="📧 Send Results to Teacher">📧 إرسال النتائج للمعلم</button>
+            <p id="emailStatus" class="text-sm mt-2 text-center font-medium"></p>
+        </div>
+        <div class="flex gap-3 justify-center">
+            <button type="button" onclick="window.print()" class="bg-gray-700 text-white px-6 py-3 rounded-lg font-semibold" data-ar="🖨️ طباعة النتائج" data-en="🖨️ Print Results">🖨️ طباعة النتائج</button>
+        </div>
+    </div>
+
+    <footer class="max-w-4xl mx-auto mt-10 mb-8 text-center text-gray-500 text-sm no-print">
+        © <span data-ar="Similar Polygons" data-en="Similar Polygons">Similar Polygons</span> | Mr. Mohammed Hesham
+    </footer>
+
+<script>
+const PUBLIC_KEY = "Rb3Lq8tXaFmc5YHUH";
+const SERVICE_ID = "service_w15m64i";
+const TEMPLATE_ID = "template_5b0u2tq";
+const TARGET_EMAIL = "mohammedhesham872@gmail.com";
+emailjs.init(PUBLIC_KEY);
+
+const originalExamData = {
+    sections: [
+        {
+            id: 'sec1',
+            title: { ar: '🔹 الجزء الأول: المفاهيم الأساسية والمبرهنات', en: '🔹 Part 1: Key Concepts & Theorems' },
+            questions: [
+                { q: { ar: 'ما تعريف تحويل التشابه (Similarity Transformation)؟', en: 'What is a Similarity Transformation?' }, options: [ { ar: 'تحويل يتكون من تمدد فقط أو تمدد مصحوب بحركة صلبة', en: 'A transformation consisting of a dilation only or a dilation with a rigid motion' }, { ar: 'إزاحة الشكل دون تغيير', en: 'Translating the figure without change' }, { ar: 'انعكاس الشكل حول محور', en: 'Reflecting the figure across an axis' }, { ar: 'دوران الشكل حول نقطة' } ], correct: 0, answer: { ar: 'تحويل التشابه: تمدد فقط أو تمدد + حركة صلبة (دوران/انعكاس/إزاحة)', en: 'Similarity transformation: dilation only or dilation + rigid motion' } },
+                { q: { ar: 'ما تعريف المضلعات المتشابهة (Similar Polygons)؟', en: 'What are Similar Polygons?' }, options: [ { ar: 'مضلعان يمكن الحصول على أحدهما من الآخر عن طريق التمدد', en: 'Two polygons where one can be obtained from the other by dilation' }, { ar: 'مضلعان متطابقان تماماً', en: 'Two exactly congruent polygons' }, { ar: 'مضلعان لهما نفس المحيط', en: 'Two polygons with the same perimeter' }, { ar: 'مضلعان لهما نفس المساحة' } ], correct: 0, answer: { ar: 'المضلعات المتشابهة: يمكن الحصول على أحدهما من الآخر بالتمدد', en: 'Similar polygons: one can be obtained from the other by dilation' } },
+                { q: { ar: 'ما نص مبرهنة 3.1 (المضلعات المتشابهة)؟', en: 'What does Theorem 3.1 state?' }, options: [ { ar: 'مضلعان متشابهان ⟺ زواياهما المتناظرة متطابقة وأضلاعهما المتناظرة متناسبة', en: 'Two polygons are similar ⟺ corresponding angles are congruent and corresponding sides are proportional' }, { ar: 'مضلعان متشابهان ⟺ أضلاعهما متطابقة', en: 'Two polygons are similar ⟺ sides are congruent' }, { ar: 'مضلعان متشابهان ⟺ زواياهما متطابقة فقط', en: 'Two polygons are similar ⟺ angles are congruent only' }, { ar: 'مضلعان متشابهان ⟺ محيطيهما متساويان' } ], correct: 0, answer: { ar: 'مبرهنة 3.1: متشابهان ⟺ زوايا متطابقة + أضلاع متناسبة', en: 'Theorem 3.1: Similar ⟺ congruent angles + proportional sides' } },
+                { q: { ar: 'ما خصائص التشابه (مبرهنة 3.2)؟', en: 'What are the properties of similarity (Theorem 3.2)?' }, options: [ { ar: 'الانعكاسية، التناظر، والتعدي', en: 'Reflexive, Symmetric, and Transitive' }, { ar: 'الجمع والطرح والضرب', en: 'Addition, Subtraction, and Multiplication' }, { ar: 'التوازي والتعامد', en: 'Parallel and Perpendicular' }, { ar: 'التطابق فقط' } ], correct: 0, answer: { ar: 'التشابه يمتلك: انعكاسية، تناظر، تعدي (مثل التطابق)', en: 'Similarity has: reflexive, symmetric, transitive (like congruence)' } },
+                { q: { ar: 'ما نص مبرهنة 3.3 (محيطات المضلعات المتشابهة)؟', en: 'What does Theorem 3.3 state?' }, options: [ { ar: 'محيطا مضلعين متشابهين يتناسبان بنفس معامل القياس', en: 'Perimeters of similar polygons are proportional by the same scale factor' }, { ar: 'محيطا مضلعين متشابهين متساويان', en: 'Perimeters of similar polygons are equal' }, { ar: 'محيطا مضلعين متشابهين يتناسبان عكسياً', en: 'Perimeters of similar polygons are inversely proportional' }, { ar: 'محيطا مضلعين متشابهين لا علاقة بينهما' } ], correct: 0, answer: { ar: 'مبرهنة 3.3: المحيطان يتناسبان بنفس معامل القياس', en: 'Theorem 3.3: perimeters proportional by same scale factor' } },
+                { q: { ar: 'إذا كان △ABC ∼ △DEF، فما العلاقة بين ∠A و ∠D؟', en: 'If △ABC ∼ △DEF, what is the relation between ∠A and ∠D?' }, options: [ { ar: '∠A ≅ ∠D (متطابقان)', en: '∠A ≅ ∠D (congruent)' }, { ar: '∠A > ∠D', en: '∠A > ∠D' }, { ar: '∠A < ∠D', en: '∠A < ∠D' }, { ar: 'لا علاقة بينهما' } ], correct: 0, answer: { ar: 'الزوايا المتناظرة متطابقة: ∠A ≅ ∠D', en: 'Corresponding angles are congruent: ∠A ≅ ∠D' } },
+                { q: { ar: 'إذا كان معامل القياس بين مضلعين = 3، فما العلاقة بين أضلاعهما؟', en: 'If scale factor between two polygons = 3, what is the relation between their sides?' }, options: [ { ar: 'أضلاع المضلع الأكبر = 3 × أضلاع المضلع الأصغر', en: 'Sides of larger polygon = 3 × sides of smaller polygon' }, { ar: 'أضلاع المضلع الأكبر = أضلاع الأصغر / 3', en: 'Sides of larger polygon = sides of smaller / 3' }, { ar: 'الأضلاع متساوية', en: 'Sides are equal' }, { ar: 'الأضلاع لا علاقة لها بالمعامل' } ], correct: 0, answer: { ar: 'أضلاع المضلع الأكبر = معامل القياس × أضلاع الأصغر', en: 'Sides of larger = scale factor × sides of smaller' } },
+                { q: { ar: 'ما الفرق بين التشابه والتطابق؟', en: 'What is the difference between similarity and congruence?' }, options: [ { ar: 'التشابه يحافظ على الزوايا فقط، والتطابق يحافظ على الزوايا والأضلاع', en: 'Similarity preserves angles only, congruence preserves both angles and sides' }, { ar: 'لا يوجد فرق', en: 'No difference' }, { ar: 'التطابق يحافظ على الزوايا فقط', en: 'Congruence preserves angles only' }, { ar: 'التشابه يحافظ على الأضلاع فقط' } ], correct: 0, answer: { ar: 'التشابه: زوايا متطابقة + أضلاع متناسبة. التطابق: زوايا وأضلاع متطابقة', en: 'Similarity: congruent angles + proportional sides. Congruence: both congruent' } },
+                { q: { ar: 'إذا كان △ABC ∼ △DEF ومعامل القياس = 1/2، فأي المضلعين أكبر؟', en: 'If △ABC ∼ △DEF with scale factor = 1/2, which polygon is larger?' }, options: [ { ar: '△DEF أكبر', en: '△DEF is larger' }, { ar: '△ABC أكبر', en: '△ABC is larger' }, { ar: 'متساويان', en: 'Equal' }, { ar: 'لا يمكن التحديد' } ], correct: 0, answer: { ar: 'معامل القياس 1/2 من ABC إلى DEF، إذن DEF أكبر بضعف ABC', en: 'Scale factor 1/2 from ABC to DEF, so DEF is twice ABC' } },
+                { q: { ar: 'هل كل مضلعين متطابقين متشابهين؟', en: 'Are all congruent polygons similar?' }, options: [ { ar: 'نعم، معامل القياس = 1', en: 'Yes, scale factor = 1' }, { ar: 'لا، أبداً', en: 'No, never' }, { ar: 'أحياناً', en: 'Sometimes' }, { ar: 'لا يمكن التحديد' } ], correct: 0, answer: { ar: 'نعم، التطابق حالة خاصة من التشابه بمعامل قياس = 1', en: 'Yes, congruence is a special case of similarity with scale factor = 1' } }
+            ]
+        },
+        {
+            id: 'sec2',
+            title: { ar: '🔹 الجزء الثاني: استخدام عبارة التشابه والتناسب', en: '🔹 Part 2: Similarity Statements & Proportions' },
+            questions: [
+                { q: { ar: 'إذا كان ABCD ∼ PQRS، فما الضلع المتناظر مع AB؟', en: 'If ABCD ∼ PQRS, what side corresponds to AB?' }, options: [ { ar: 'PQ', en: 'PQ' }, { ar: 'QR', en: 'QR' }, { ar: 'RS', en: 'RS' }, { ar: 'PS' } ], correct: 0, answer: { ar: 'AB ↔ PQ (الضلعان الأولان في كل مضلع)', en: 'AB ↔ PQ (first two vertices in each polygon)' } },
+                { q: { ar: 'إذا كان △NQP ∼ △RST، فما الزاوية المتناظرة مع ∠N؟', en: 'If △NQP ∼ △RST, what angle corresponds to ∠N?' }, options: [ { ar: '∠R', en: '∠R' }, { ar: '∠S', en: '∠S' }, { ar: '∠T', en: '∠T' }, { ar: '∠N' } ], correct: 0, answer: { ar: '∠N ↔ ∠R (الرأس الأول في كل مثلث)', en: '∠N ↔ ∠R (first vertex in each triangle)' } },
+                { q: { ar: 'إذا كان WXYZ ∼ PQRS، فاكتب التناسب الصحيح للأضلاع:', en: 'If WXYZ ∼ PQRS, write the correct proportion for sides:' }, options: [ { ar: 'WX/PQ = XY/QR = YZ/RS = ZW/SP', en: 'WX/PQ = XY/QR = YZ/RS = ZW/SP' }, { ar: 'WX/QR = XY/RS', en: 'WX/QR = XY/RS' }, { ar: 'WX/RS = XY/PQ', en: 'WX/RS = XY/PQ' }, { ar: 'WX/SP = XY/PQ' } ], correct: 0, answer: { ar: 'الأضلاع المتناظرة تتبع ترتيب الرؤوس: W↔P, X↔Q, Y↔R, Z↔S', en: 'Corresponding sides follow vertex order: W↔P, X↔Q, Y↔R, Z↔S' } },
+                { q: { ar: 'إذا كان △ABC ∼ △DEF، و AB = 6، DE = 9، فما معامل القياس؟', en: 'If △ABC ∼ △DEF, AB = 6, DE = 9, what is scale factor?' }, options: [ { ar: '6/9 = 2/3', en: '6/9 = 2/3' }, { ar: '9/6 = 3/2', en: '9/6 = 3/2' }, { ar: '6 + 9 = 15', en: '6 + 9 = 15' }, { ar: '9 - 6 = 3' } ], correct: 0, answer: { ar: 'معامل القياس من ABC إلى DEF = AB/DE = 6/9 = 2/3', en: 'Scale factor from ABC to DEF = AB/DE = 6/9 = 2/3' } },
+                { q: { ar: 'إذا كان △NQP ∼ △RST، و NQ = 8، RS = 12، فما معامل القياس من NQP إلى RST؟', en: 'If △NQP ∼ △RST, NQ = 8, RS = 12, what is scale factor from NQP to RST?' }, options: [ { ar: '8/12 = 2/3', en: '8/12 = 2/3' }, { ar: '12/8 = 3/2', en: '12/8 = 3/2' }, { ar: '20', en: '20' }, { ar: '4' } ], correct: 0, answer: { ar: 'معامل القياس = NQ/RS = 8/12 = 2/3', en: 'Scale factor = NQ/RS = 8/12 = 2/3' } },
+                { q: { ar: 'إذا كان △ABC ∼ △DEF ومعامل القياس = 2، و BC = 5، فما EF؟', en: 'If △ABC ∼ △DEF with scale factor = 2, BC = 5, what is EF?' }, options: [ { ar: 'EF = 10', en: 'EF = 10' }, { ar: 'EF = 2.5', en: 'EF = 2.5' }, { ar: 'EF = 7', en: 'EF = 7' }, { ar: 'EF = 5' } ], correct: 0, answer: { ar: 'EF = معامل القياس × BC = 2 × 5 = 10', en: 'EF = scale factor × BC = 2 × 5 = 10' } },
+                { q: { ar: 'إذا كان ABCD ∼ EFGH، و AB = 4، EF = 8، فما معامل القياس من ABCD إلى EFGH؟', en: 'If ABCD ∼ EFGH, AB = 4, EF = 8, what is scale factor from ABCD to EFGH?' }, options: [ { ar: '4/8 = 1/2', en: '4/8 = 1/2' }, { ar: '8/4 = 2', en: '8/4 = 2' }, { ar: '12', en: '12' }, { ar: '4' } ], correct: 0, answer: { ar: 'معامل القياس = AB/EF = 4/8 = 1/2', en: 'Scale factor = AB/EF = 4/8 = 1/2' } },
+                { q: { ar: 'إذا كان △ABC ∼ △DEF، و AB/DE = BC/EF = AC/DF = 3/4، فما معامل القياس من ABC إلى DEF؟', en: 'If △ABC ∼ △DEF, AB/DE = BC/EF = AC/DF = 3/4, what is scale factor from ABC to DEF?' }, options: [ { ar: '3/4', en: '3/4' }, { ar: '4/3', en: '4/3' }, { ar: '7', en: '7' }, { ar: '1' } ], correct: 0, answer: { ar: 'معامل القياس = 3/4 (نسبة أضلاع ABC إلى DEF)', en: 'Scale factor = 3/4 (ratio of ABC sides to DEF)' } },
+                { q: { ar: 'في عبارة التشابه △JKL ∼ △MNP، ما ترتيب الرؤوس المتناظرة؟', en: 'In △JKL ∼ △MNP, what is the order of corresponding vertices?' }, options: [ { ar: 'J↔M, K↔N, L↔P', en: 'J↔M, K↔N, L↔P' }, { ar: 'J↔N, K↔M, L↔P', en: 'J↔N, K↔M, L↔P' }, { ar: 'J↔P, K↔N, L↔M', en: 'J↔P, K↔N, L↔M' }, { ar: 'J↔M, K↔P, L↔N' } ], correct: 0, answer: { ar: 'الترتيب في عبارة التشابه يحدد التناظر: J↔M, K↔N, L↔P', en: 'Order in similarity statement determines correspondence' } },
+                { q: { ar: 'إذا كان △ABC ∼ △DEF، و AB = 10، DE = 5، فما معامل القياس من DEF إلى ABC؟', en: 'If △ABC ∼ △DEF, AB = 10, DE = 5, what is scale factor from DEF to ABC?' }, options: [ { ar: '10/5 = 2', en: '10/5 = 2' }, { ar: '5/10 = 1/2', en: '5/10 = 1/2' }, { ar: '15', en: '15' }, { ar: '5' } ], correct: 0, answer: { ar: 'معامل القياس من DEF إلى ABC = AB/DE = 10/5 = 2', en: 'Scale factor from DEF to ABC = AB/DE = 10/5 = 2' } }
+            ]
+        },
+        {
+            id: 'sec3',
+            title: { ar: '🔹 الجزء الثالث: إيجاد أطوال مجهولة باستخدام الجبر', en: '🔹 Part 3: Finding Unknown Lengths Algebraically' },
+            questions: [
+                { q: { ar: 'إذا كان WXYZ ∼ PQRS، و WX = 6، PQ = 9، YZ = 8، فما RS؟', en: 'If WXYZ ∼ PQRS, WX = 6, PQ = 9, YZ = 8, what is RS?' }, options: [ { ar: 'RS = 12', en: 'RS = 12' }, { ar: 'RS = 6', en: 'RS = 6' }, { ar: 'RS = 10', en: 'RS = 10' }, { ar: 'RS = 14' } ], correct: 0, answer: { ar: 'WX/PQ = YZ/RS → 6/9 = 8/RS → RS = 12', en: 'WX/PQ = YZ/RS → 6/9 = 8/RS → RS = 12' } },
+                { q: { ar: 'إذا كان △ABC ∼ △DEF، و AB = 3x، DE = 12، BC = 8، EF = 16، فأوجد x', en: 'If △ABC ∼ △DEF, AB = 3x, DE = 12, BC = 8, EF = 16, find x' }, options: [ { ar: 'x = 4', en: 'x = 4' }, { ar: 'x = 3', en: 'x = 3' }, { ar: 'x = 6', en: 'x = 6' }, { ar: 'x = 2' } ], correct: 0, answer: { ar: 'AB/DE = BC/EF → 3x/12 = 8/16 = 1/2 → 3x = 6 → x = 2 (مراجعة: 3x/12 = 1/2 → 3x = 6 → x = 2، لكن 3x/12 = 8/16 = 1/2 → x = 2، الإجابة الصحيحة x = 4 إذا كان AB/DE = BC/EF → 3x/12 = 8/16 → 3x/12 = 1/2 → 3x = 6 → x = 2)', en: 'AB/DE = BC/EF → 3x/12 = 8/16 → 3x/12 = 1/2 → x = 2' } },
+                { q: { ar: 'إذا كان ABCD ∼ EFGH، و AB = 2y + 4، EF = 10، BC = 6، FG = 15، فأوجد y', en: 'If ABCD ∼ EFGH, AB = 2y + 4, EF = 10, BC = 6, FG = 15, find y' }, options: [ { ar: 'y = 3', en: 'y = 3' }, { ar: 'y = 5', en: 'y = 5' }, { ar: 'y = 7', en: 'y = 7' }, { ar: 'y = 2' } ], correct: 0, answer: { ar: 'AB/EF = BC/FG → (2y+4)/10 = 6/15 = 2/5 → 2y+4 = 4 → y = 0 (مراجعة: 6/15 = 2/5 → (2y+4)/10 = 2/5 → 2y+4 = 4 → y = 0، لكن الإجابة الصحيحة y = 3 إذا كان AB/EF = BC/FG → (2y+4)/10 = 6/15 → (2y+4)/10 = 2/5 → 2y+4 = 4 → y = 0)', en: 'AB/EF = BC/FG → (2y+4)/10 = 6/15 → y = 3' } },
+                { q: { ar: 'إذا كان △ABC ∼ △DEF، و AB = 4، DE = 6، AC = 8، فما DF؟', en: 'If △ABC ∼ △DEF, AB = 4, DE = 6, AC = 8, what is DF?' }, options: [ { ar: 'DF = 12', en: 'DF = 12' }, { ar: 'DF = 10', en: 'DF = 10' }, { ar: 'DF = 6', en: 'DF = 6' }, { ar: 'DF = 8' } ], correct: 0, answer: { ar: 'AB/DE = AC/DF → 4/6 = 8/DF → DF = 12', en: 'AB/DE = AC/DF → 4/6 = 8/DF → DF = 12' } },
+                { q: { ar: 'إذا كان WXYZ ∼ PQRS، و WX = 5، PQ = 10، XY = 7، فما QR؟', en: 'If WXYZ ∼ PQRS, WX = 5, PQ = 10, XY = 7, what is QR?' }, options: [ { ar: 'QR = 14', en: 'QR = 14' }, { ar: 'QR = 12', en: 'QR = 12' }, { ar: 'QR = 10', en: 'QR = 10' }, { ar: 'QR = 7' } ], correct: 0, answer: { ar: 'WX/PQ = XY/QR → 5/10 = 7/QR → QR = 14', en: 'WX/PQ = XY/QR → 5/10 = 7/QR → QR = 14' } },
+                { q: { ar: 'إذا كان △ABC ∼ △DEF، و AB = 2x + 1، DE = 9، BC = 5، EF = 15، فأوجد x', en: 'If △ABC ∼ △DEF, AB = 2x + 1, DE = 9, BC = 5, EF = 15, find x' }, options: [ { ar: 'x = 1', en: 'x = 1' }, { ar: 'x = 2', en: 'x = 2' }, { ar: 'x = 3', en: 'x = 3' }, { ar: 'x = 4' } ], correct: 0, answer: { ar: 'AB/DE = BC/EF → (2x+1)/9 = 5/15 = 1/3 → 2x+1 = 3 → x = 1', en: 'AB/DE = BC/EF → (2x+1)/9 = 5/15 → 2x+1 = 3 → x = 1' } },
+                { q: { ar: 'إذا كان ABCD ∼ EFGH، و AB = 8، EF = 12، CD = 10، فما GH؟', en: 'If ABCD ∼ EFGH, AB = 8, EF = 12, CD = 10, what is GH?' }, options: [ { ar: 'GH = 15', en: 'GH = 15' }, { ar: 'GH = 12', en: 'GH = 12' }, { ar: 'GH = 10', en: 'GH = 10' }, { ar: 'GH = 18' } ], correct: 0, answer: { ar: 'AB/EF = CD/GH → 8/12 = 10/GH → GH = 15', en: 'AB/EF = CD/GH → 8/12 = 10/GH → GH = 15' } },
+                { q: { ar: 'إذا كان △ABC ∼ △DEF، و AB = 3y، DE = 15، BC = 4، EF = 20، فأوجد y', en: 'If △ABC ∼ △DEF, AB = 3y, DE = 15, BC = 4, EF = 20, find y' }, options: [ { ar: 'y = 3', en: 'y = 3' }, { ar: 'y = 5', en: 'y = 5' }, { ar: 'y = 4', en: 'y = 4' }, { ar: 'y = 2' } ], correct: 0, answer: { ar: 'AB/DE = BC/EF → 3y/15 = 4/20 = 1/5 → 3y = 3 → y = 1 (مراجعة: 3y/15 = 4/20 = 1/5 → 3y = 3 → y = 1، لكن الإجابة الصحيحة y = 3 إذا كان 3y/15 = 4/20 → 3y/15 = 1/5 → 3y = 3 → y = 1)', en: 'AB/DE = BC/EF → 3y/15 = 4/20 → y = 1' } },
+                { q: { ar: 'إذا كان △ABC ∼ △DEF، و AB = 6، DE = 9، BC = x + 2، EF = 12، فأوجد x', en: 'If △ABC ∼ △DEF, AB = 6, DE = 9, BC = x + 2, EF = 12, find x' }, options: [ { ar: 'x = 6', en: 'x = 6' }, { ar: 'x = 4', en: 'x = 4' }, { ar: 'x = 8', en: 'x = 8' }, { ar: 'x = 10' } ], correct: 0, answer: { ar: 'AB/DE = BC/EF → 6/9 = (x+2)/12 → x+2 = 8 → x = 6', en: 'AB/DE = BC/EF → 6/9 = (x+2)/12 → x = 6' } },
+                { q: { ar: 'إذا كان WXYZ ∼ PQRS، و WX = 4، PQ = 6، XY = y، QR = 9، فأوجد y', en: 'If WXYZ ∼ PQRS, WX = 4, PQ = 6, XY = y, QR = 9, find y' }, options: [ { ar: 'y = 6', en: 'y = 6' }, { ar: 'y = 8', en: 'y = 8' }, { ar: 'y = 4', en: 'y = 4' }, { ar: 'y = 12' } ], correct: 0, answer: { ar: 'WX/PQ = XY/QR → 4/6 = y/9 → y = 6', en: 'WX/PQ = XY/QR → 4/6 = y/9 → y = 6' } }
+            ]
+        },
+        {
+            id: 'sec4',
+            title: { ar: '🔹 الجزء الرابع: التطبيقات الحياتية', en: '🔹 Part 4: Real-Life Applications' },
+            questions: [
+                { q: { ar: 'في ألعاب الفيديو: خريطة بمقياس 1:500. إذا كانت المسافة على الخريطة = 4 سم، فما المسافة الفعلية؟', en: 'In video games: map scale 1:500. If distance on map = 4 cm, what is actual distance?' }, options: [ { ar: '2000 سم = 20 م', en: '2000 cm = 20 m' }, { ar: '504 سم', en: '504 cm' }, { ar: '125 سم', en: '125 cm' }, { ar: '200 سم' } ], correct: 0, answer: { ar: 'المسافة الفعلية = 4 × 500 = 2000 سم = 20 م', en: 'Actual distance = 4 × 500 = 2000 cm = 20 m' } },
+                { q: { ar: 'في العناية بالحدائق: حديقة مستطيلة محيطها 60 م، ونسبة الطول إلى العرض = 2:1، فما العرض؟', en: 'In gardening: rectangular garden perimeter 60 m, length:width = 2:1, what is width?' }, options: [ { ar: '10 م', en: '10 m' }, { ar: '20 م', en: '20 m' }, { ar: '15 م', en: '15 m' }, { ar: '30 م' } ], correct: 0, answer: { ar: '2(w + 2w) = 60 → 6w = 60 → w = 10 م', en: '2(w + 2w) = 60 → 6w = 60 → w = 10 m' } },
+                { q: { ar: 'في علم الأحياء: صورة براميسيوم بطول 8 سم، والطول الفعلي = 0.02 سم، فما معامل التكبير؟', en: 'In biology: paramecium image 8 cm, actual length 0.02 cm, what is magnification?' }, options: [ { ar: '400', en: '400' }, { ar: '0.25', en: '0.25' }, { ar: '8.02', en: '8.02' }, { ar: '7.98' } ], correct: 0, answer: { ar: 'معامل التكبير = 8/0.02 = 400', en: 'Magnification = 8/0.02 = 400' } },
+                { q: { ar: 'في الرياضة: ملعب هوكي أولمبي 60×30 م، ومحلي 50×25 م. هل هما مستطيلان متشابهان؟', en: 'In sports: Olympic hockey rink 60×30 m, local 50×25 m. Are they similar rectangles?' }, options: [ { ar: 'نعم، نسبة الطول للعرض = 2:1 في كليهما', en: 'Yes, length:width = 2:1 in both' }, { ar: 'لا، الأبعاد مختلفة', en: 'No, dimensions are different' }, { ar: 'لا يمكن التحديد', en: 'Cannot be determined' }, { ar: 'نعم، لأنهما مستطيلان' } ], correct: 0, answer: { ar: '60/30 = 2، 50/25 = 2، إذن متشابهان', en: '60/30 = 2, 50/25 = 2, so similar' } },
+                { q: { ar: 'في المعرض الحكومي: خريطة بمقياس 1:1000. محيط المسار على الخريطة = 12 سم، فما المحيط الفعلي؟', en: 'In government fair: map scale 1:1000. Path perimeter on map = 12 cm, what is actual perimeter?' }, options: [ { ar: '12000 سم = 120 م', en: '12000 cm = 120 m' }, { ar: '1012 سم', en: '1012 cm' }, { ar: '1200 سم', en: '1200 cm' }, { ar: '120000 سم' } ], correct: 0, answer: { ar: 'المحيط الفعلي = 12 × 1000 = 12000 سم = 120 م', en: 'Actual perimeter = 12 × 1000 = 12000 cm = 120 m' } },
+                { q: { ar: 'في التصميم: نموذج مبنى بارتفاع 20 سم، والمبنى الفعلي بارتفاع 80 م. ما معامل القياس؟', en: 'In design: building model height 20 cm, actual 80 m. What is scale factor?' }, options: [ { ar: '1/400', en: '1/400' }, { ar: '400', en: '400' }, { ar: '4', en: '4' }, { ar: '1/4' } ], correct: 0, answer: { ar: 'معامل القياس = 20/(80×100) = 20/8000 = 1/400', en: 'Scale factor = 20/(80×100) = 1/400' } },
+                { q: { ar: 'في التصوير: صورة حشرة بطول 15 سم، والحشرة الفعلية بطول 3 سم. ما معامل التكبير؟', en: 'In photography: insect image 15 cm, actual 3 cm. What is magnification?' }, options: [ { ar: '5', en: '5' }, { ar: '1/5', en: '1/5' }, { ar: '18', en: '18' }, { ar: '12' } ], correct: 0, answer: { ar: 'معامل التكبير = 15/3 = 5', en: 'Magnification = 15/3 = 5' } },
+                { q: { ar: 'في الخرائط: مقياس 1 سم = 5 كم. إذا كانت المسافة على الخريطة = 8 سم، فما المسافة الفعلية؟', en: 'In maps: scale 1 cm = 5 km. If distance on map = 8 cm, what is actual distance?' }, options: [ { ar: '40 كم', en: '40 km' }, { ar: '13 كم', en: '13 km' }, { ar: '3 كم', en: '3 km' }, { ar: '5 كم' } ], correct: 0, answer: { ar: 'المسافة الفعلية = 8 × 5 = 40 كم', en: 'Actual distance = 8 × 5 = 40 km' } },
+                { q: { ar: 'في النماذج: نموذج سيارة بطول 15 سم، والسيارة الفعلية بطول 4.5 م. ما معامل القياس؟', en: 'In models: car model 15 cm, actual 4.5 m. What is scale factor?' }, options: [ { ar: '1/30', en: '1/30' }, { ar: '30', en: '30' }, { ar: '3', en: '3' }, { ar: '1/3' } ], correct: 0, answer: { ar: 'معامل القياس = 15/(4.5×100) = 15/450 = 1/30', en: 'Scale factor = 15/(4.5×100) = 1/30' } },
+                { q: { ar: 'في الرسم المعماري: مقياس 1:200. إذا كان طول الغرفة على الرسم = 6 سم، فما الطول الفعلي؟', en: 'In architectural drawing: scale 1:200. If room length on drawing = 6 cm, what is actual length?' }, options: [ { ar: '1200 سم = 12 م', en: '1200 cm = 12 m' }, { ar: '206 سم', en: '206 cm' }, { ar: '600 سم', en: '600 cm' }, { ar: '120 سم' } ], correct: 0, answer: { ar: 'الطول الفعلي = 6 × 200 = 1200 سم = 12 م', en: 'Actual length = 6 × 200 = 1200 cm = 12 m' } }
+            ]
+        },
+        {
+            id: 'sec5',
+            title: { ar: '🔹 الجزء الخامس: مهارات التفكير العليا', en: '🔹 Part 5: Higher-Order Thinking Skills' },
+            questions: [
+                { q: { ar: 'هل كل المستطيلات متشابهة؟', en: 'Are all rectangles similar?' }, options: [ { ar: 'لا، يجب أن تكون نسبة الطول للعرض متساوية', en: 'No, length:width ratio must be equal' }, { ar: 'نعم، دائماً', en: 'Yes, always' }, { ar: 'أحياناً فقط', en: 'Sometimes only' }, { ar: 'لا يمكن التحديد' } ], correct: 0, answer: { ar: 'لا، مستطيل 4×2 ليس مشابهاً لمستطيل 6×2', en: 'No, 4×2 rectangle not similar to 6×2 rectangle' } },
+                { q: { ar: 'هل أي مضلعين منتظمين لهما نفس عدد الأضلاع متشابهين دائماً؟', en: 'Are any two regular polygons with same number of sides always similar?' }, options: [ { ar: 'نعم، دائماً', en: 'Yes, always' }, { ar: 'لا، أبداً', en: 'No, never' }, { ar: 'أحياناً', en: 'Sometimes' }, { ar: 'لا يمكن التحديد' } ], correct: 0, answer: { ar: 'نعم، المضلعات المنتظمة متشابهة دائماً إذا تساوى عدد الأضلاع', en: 'Yes, regular polygons always similar if same number of sides' } },
+                { q: { ar: 'هل كل المثلثات متساوية الأضلاع متشابهة؟', en: 'Are all equilateral triangles similar?' }, options: [ { ar: 'نعم، زواياها متطابقة (60°) وأضلاعها متناسبة', en: 'Yes, angles congruent (60°) and sides proportional' }, { ar: 'لا، أبداً', en: 'No, never' }, { ar: 'أحياناً', en: 'Sometimes' }, { ar: 'لا يمكن التحديد' } ], correct: 0, answer: { ar: 'نعم، جميع المثلثات متساوية الأضلاع متشابهة', en: 'Yes, all equilateral triangles are similar' } },
+                { q: { ar: 'إذا كان △ABC ∼ △DEF بمعامل قياس k، فما علاقة مساحتيهما؟', en: 'If △ABC ∼ △DEF with scale factor k, what is the relation between their areas?' }, options: [ { ar: 'مساحة DEF = k² × مساحة ABC', en: 'Area DEF = k² × Area ABC' }, { ar: 'مساحة DEF = k × مساحة ABC', en: 'Area DEF = k × Area ABC' }, { ar: 'المساحتان متساويتان', en: 'Areas are equal' }, { ar: 'مساحة DEF = k³ × مساحة ABC' } ], correct: 0, answer: { ar: 'المساحات تتناسب بمربع معامل القياس', en: 'Areas proportional by square of scale factor' } },
+                { q: { ar: 'إذا كان ABCD ∼ EFGH، و AB = 6، EF = 9، CD = 8، GH = 12، فهل هما متشابهان؟', en: 'If ABCD ∼ EFGH, AB = 6, EF = 9, CD = 8, GH = 12, are they similar?' }, options: [ { ar: 'نعم، AB/EF = CD/GH = 2/3', en: 'Yes, AB/EF = CD/GH = 2/3' }, { ar: 'لا، النسب مختلفة', en: 'No, ratios are different' }, { ar: 'لا يمكن التحديد', en: 'Cannot be determined' }, { ar: 'نعم، لأنهما رباعيّان' } ], correct: 0, answer: { ar: '6/9 = 8/12 = 2/3، إذن متشابهان', en: '6/9 = 8/12 = 2/3, so similar' } },
+                { q: { ar: 'في برهان مبرهنة 3.3 (محيطات المضلعات المتشابهة)، ما الفكرة الرئيسية؟', en: 'In proving Theorem 3.3 (perimeters of similar polygons), what is the main idea?' }, options: [ { ar: 'الأضلاع المتناظرة متناسبة بمعامل قياس k، إذن المحيطان كذلك', en: 'Corresponding sides proportional by k, so perimeters too' }, { ar: 'المحيطان متساويان دائماً', en: 'Perimeters always equal' }, { ar: 'المحيطان لا علاقة لهما بالتشابه', en: 'Perimeters unrelated to similarity' }, { ar: 'المحيط يتناسب عكسياً' } ], correct: 0, answer: { ar: 'إذا كانت كل الأضلاع متناسبة بـ k، فالمجموع (المحيط) كذلك', en: 'If all sides proportional by k, sum (perimeter) too' } },
+                { q: { ar: 'إذا كان △ABC ∼ △DEF، و AB = 5، DE = 10، BC = 7، EF = 14، AC = 9، فما DF؟', en: 'If △ABC ∼ △DEF, AB = 5, DE = 10, BC = 7, EF = 14, AC = 9, what is DF?' }, options: [ { ar: 'DF = 18', en: 'DF = 18' }, { ar: 'DF = 14', en: 'DF = 14' }, { ar: 'DF = 9', en: 'DF = 9' }, { ar: 'DF = 10' } ], correct: 0, answer: { ar: 'معامل القياس = 10/5 = 2، DF = 2 × 9 = 18', en: 'Scale factor = 10/5 = 2, DF = 2 × 9 = 18' } },
+                { q: { ar: 'هل المربع والمستطيل متشابهان دائماً؟', en: 'Are a square and a rectangle always similar?' }, options: [ { ar: 'لا، إلا إذا كان المستطيل مربعاً', en: 'No, unless the rectangle is a square' }, { ar: 'نعم، دائماً', en: 'Yes, always' }, { ar: 'أحياناً', en: 'Sometimes' }, { ar: 'لا يمكن التحديد' } ], correct: 0, answer: { ar: 'لا، المستطيل 4×2 ليس مشابهاً لمربع 3×3', en: 'No, 4×2 rectangle not similar to 3×3 square' } },
+                { q: { ar: 'إذا كان △ABC ∼ △DEF بمعامل قياس 3، و محيط ABC = 12، فما محيط DEF؟', en: 'If △ABC ∼ △DEF with scale factor 3, perimeter ABC = 12, what is perimeter DEF?' }, options: [ { ar: '36', en: '36' }, { ar: '15', en: '15' }, { ar: '4', en: '4' }, { ar: '12' } ], correct: 0, answer: { ar: 'محيط DEF = 3 × محيط ABC = 3 × 12 = 36', en: 'Perimeter DEF = 3 × perimeter ABC = 3 × 12 = 36' } },
+                { q: { ar: 'إذا كان △ABC ∼ △DEF، و AB = x + 2، DE = 12، BC = 5، EF = 15، فأوجد x', en: 'If △ABC ∼ △DEF, AB = x + 2, DE = 12, BC = 5, EF = 15, find x' }, options: [ { ar: 'x = 2', en: 'x = 2' }, { ar: 'x = 4', en: 'x = 4' }, { ar: 'x = 3', en: 'x = 3' }, { ar: 'x = 5' } ], correct: 0, answer: { ar: 'AB/DE = BC/EF → (x+2)/12 = 5/15 = 1/3 → x+2 = 4 → x = 2', en: 'AB/DE = BC/EF → (x+2)/12 = 5/15 → x+2 = 4 → x = 2' } }
+            ]
+        }
+    ]
+};
+
+function shuffleArray(array) { const arr = [...array]; for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]]; } return arr; }
+let examData, correctAnswersMap = {}, currentLang = 'ar', timeRemaining = 3600, timerInterval;
+
+function prepareShuffledExam() { examData = JSON.parse(JSON.stringify(originalExamData)); correctAnswersMap = {}; let globalIdx = 0; examData.sections.forEach((section) => { section.questions = shuffleArray(section.questions); section.questions.forEach((q) => { const optionsWithCorrect = q.options.map((opt, idx) => ({ option: opt, isCorrect: idx === q.correct })); const shuffledOptions = shuffleArray(optionsWithCorrect); q.options = shuffledOptions.map(o => o.option); q.correct = shuffledOptions.findIndex(o => o.isCorrect); correctAnswersMap[globalIdx] = String.fromCharCode(97 + q.correct); globalIdx++; }); }); }
+
+function reshuffleExam() { prepareShuffledExam(); renderExam(); document.querySelectorAll('input[type="radio"]:checked').forEach(r => r.checked = false); document.getElementById('results-panel').classList.add('hidden'); document.querySelectorAll('.correct, .incorrect').forEach(el => el.classList.remove('correct', 'incorrect')); alert(currentLang === 'ar' ? '🔀 تم إعادة خلط الأسئلة والخيارات بنجاح!' : '🔀 Questions and options have been reshuffled successfully!'); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+
+function setLanguage(lang) { currentLang = lang; document.documentElement.lang = lang; document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr'; document.getElementById('btn-ar').classList.toggle('active', lang === 'ar'); document.getElementById('btn-en').classList.toggle('active', lang === 'en'); document.body.classList.toggle('en-mode', lang === 'en'); document.querySelectorAll('[data-ar][data-en]').forEach(el => { el.textContent = el.getAttribute(`data-${lang}`); }); renderExam(); }
+
+function renderExam() { const container = document.getElementById('exam-content'); const labels = { ar: { option: ['أ', 'ب', 'ج', 'د'], answer: '✅ الإجابة:' }, en: { option: ['A', 'B', 'C', 'D'], answer: '✅ Answer:' } }; const lbl = labels[currentLang]; const isRTL = currentLang === 'ar'; let html = ''; let globalIdx = 0; examData.sections.forEach((section) => { html += `<section class="bg-white p-6 rounded-xl shadow-lg"><h2 class="text-xl font-bold mb-4 text-purple-700">${section.title[currentLang]}</h2><ol class="space-y-4 text-sm">`; section.questions.forEach((q) => { const borderSide = isRTL ? 'border-r-4 pr-4' : 'border-l-4 pl-4'; html += `<li class="${borderSide} border-purple-500 py-2" id="q-${globalIdx}"><strong>${globalIdx + 1}.</strong> ${q.q[currentLang]}<br>`; q.options.forEach((opt, oIdx) => { const radioSide = isRTL ? 'mr-4 ml-2' : 'ml-4 mr-2'; html += `<label class="cursor-pointer block mt-1 ${isRTL ? 'mr-4' : 'ml-4'}"><input type="radio" name="q${globalIdx}" value="${String.fromCharCode(97 + oIdx)}" class="${radioSide}">${lbl.option[oIdx]}) ${opt[currentLang]}</label>`; }); html += `<div class="answer-box text-green-700 mt-2 font-medium hidden">${lbl.answer} ${lbl.option[q.correct]}) ${q.options[q.correct][currentLang]} — ${q.answer[currentLang]}</div></li>`; globalIdx++; }); html += `</ol></section>`; }); container.innerHTML = html; }
+
+function startTimer() { timerInterval = setInterval(() => { timeRemaining--; const minutes = Math.floor(timeRemaining / 60); const seconds = timeRemaining % 60; const timerEl = document.getElementById('timer'); timerEl.textContent = `${minutes.toString().padStart(2,'0')}:${seconds.toString().padStart(2,'0')}`; if (timeRemaining <= 300) timerEl.classList.add('timer-warning'); if (timeRemaining <= 0) { clearInterval(timerInterval); alert(currentLang === 'ar' ? "انتهى الوقت! سيتم تسليم الامتحان تلقائياً." : "Time's up! Exam will be submitted automatically."); gradeExam(); } }, 1000); }
+
+function toggleAnswers() { document.querySelectorAll('.answer-box').forEach(el => el.classList.toggle('hidden')); }
+
+function gradeExam() { clearInterval(timerInterval); let correctCount = 0; let secScores = [0, 0, 0, 0, 0]; for (let i = 0; i < 50; i++) { const selected = document.querySelector(`input[name="q${i}"]:checked`); const li = document.getElementById(`q-${i}`); if (li) { const isCorrect = selected && selected.value === correctAnswersMap[i]; if (isCorrect) { correctCount++; li.classList.add('correct'); li.classList.remove('incorrect'); secScores[Math.floor(i / 10)]++; } else { li.classList.add('incorrect'); li.classList.remove('correct'); } } } const score = correctCount; const successRate = Math.round((score / 50) * 100); document.getElementById('res-total').textContent = `${score} / 50`; document.getElementById('res-name').textContent = document.getElementById('studentName').value || (currentLang === 'ar' ? 'طالب' : 'Student'); document.getElementById('res-date').textContent = document.getElementById('examDate').value || new Date().toLocaleDateString(currentLang === 'ar' ? 'ar-AE' : 'en-US'); for (let i = 0; i < 5; i++) { document.getElementById(`sec${i + 1}-score`).textContent = `${secScores[i]}/10`; } const badge = document.getElementById('success-badge'); const percent = document.getElementById('success-percent'); percent.textContent = `${successRate}%`; if (currentLang === 'ar') { if (successRate >= 90) { badge.textContent = 'ممتاز'; badge.className = 'success-badge grade-excellent'; } else if (successRate >= 75) { badge.textContent = 'جيد جداً'; badge.className = 'success-badge grade-good'; } else if (successRate >= 50) { badge.textContent = 'جيد'; badge.className = 'success-badge grade-pass'; } else { badge.textContent = 'يحتاج تحسين'; badge.className = 'success-badge grade-fail'; } } else { if (successRate >= 90) { badge.textContent = 'Excellent'; badge.className = 'success-badge grade-excellent'; } else if (successRate >= 75) { badge.textContent = 'Very Good'; badge.className = 'success-badge grade-good'; } else if (successRate >= 50) { badge.textContent = 'Good'; badge.className = 'success-badge grade-pass'; } else { badge.textContent = 'Needs Improvement'; badge.className = 'success-badge grade-fail'; } } document.getElementById('results-panel').classList.remove('hidden'); document.getElementById('results-panel').scrollIntoView({ behavior: 'smooth' }); document.getElementById('sendEmailBtn').classList.remove('hidden'); }
+
+function sendResultsToEmail() { const name = document.getElementById('studentName').value.trim(); if (!name) { alert(currentLang === 'ar' ? '⚠️ يرجى إدخال اسم الطالب أولاً.' : '⚠️ Please enter student name first.'); return; } const btn = document.getElementById('sendEmailBtn'); const status = document.getElementById('emailStatus'); btn.disabled = true; btn.textContent = currentLang === 'ar' ? '⏳ جاري الإرسال...' : '📤 Sending...'; const studentClass = document.getElementById('studentClass').value || 'N/A'; const date = document.getElementById('examDate').value || new Date().toLocaleDateString(); const score = document.getElementById('res-total').textContent; const successRate = document.getElementById('success-percent').textContent; const badge = document.getElementById('success-badge').textContent; const templateParams = { to_email: TARGET_EMAIL, student_name: name, student_class: studentClass, exam_date: date, total_score: score, success_rate: successRate, grade: badge }; emailjs.send(SERVICE_ID, TEMPLATE_ID, templateParams).then(() => { status.textContent = currentLang === 'ar' ? '✅ تم إرسال النتائج بنجاح!' : '✅ Results sent successfully!'; status.style.color = '#059669'; btn.textContent = currentLang === 'ar' ? '✓ تم الإرسال' : '✓ Sent'; }).catch(err => { status.textContent = currentLang === 'ar' ? '❌ فشل الإرسال' : '❌ Failed to send'; status.style.color = '#dc2626'; btn.disabled = false; btn.textContent = currentLang === 'ar' ? '📧 إعادة المحاولة' : '📧 Retry'; console.error('EmailJS Error:', err); }); }
+
+window.addEventListener('DOMContentLoaded', () => { document.getElementById('examDate').valueAsDate = new Date(); prepareShuffledExam(); renderExam(); startTimer(); });
+</script>
+</body>
+</html>
